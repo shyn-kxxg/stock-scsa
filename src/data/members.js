@@ -1,6 +1,5 @@
 // 구매 정보 기준: 2025년 SCSA 주식 경마 대회
 // Yahoo Finance 종목 코드 확인: https://finance.yahoo.com/lookup
-// QTUM 코인 정보: CoinGecko (https://www.coingecko.com/en/coins/qtum)
 
 export const MEMBERS = [
   {
@@ -8,7 +7,7 @@ export const MEMBERS = [
     name: '혜민',
     color: '#FF6B6B',
     stock: '도이치모터스',
-    symbol: '189350.KQ',
+    symbol: '067990.KQ',
     type: 'stock',
     currency: 'KRW',
     quantity: 2,
@@ -32,7 +31,7 @@ export const MEMBERS = [
     name: '승기',
     color: '#C084FC',
     stock: 'KBI동양철관',
-    symbol: '008260.KS',
+    symbol: '008970.KS',
     type: 'stock',
     currency: 'KRW',
     quantity: 6,
@@ -56,7 +55,7 @@ export const MEMBERS = [
     name: '예원',
     color: '#FBBF24',
     stock: '한국파마',
-    symbol: '006220.KQ',
+    symbol: '032300.KQ',
     type: 'stock',
     currency: 'KRW',
     quantity: 1,
@@ -67,9 +66,9 @@ export const MEMBERS = [
     id: 'seohyeon',
     name: '서현',
     color: '#34D399',
-    stock: 'QTUM',
-    symbol: 'qtum',
-    type: 'crypto',
+    stock: 'QTUM ETF',
+    symbol: 'QTUM',
+    type: 'stock',
     currency: 'USD',
     quantity: 7 / 151.99,
     purchasePrice: 151.99,

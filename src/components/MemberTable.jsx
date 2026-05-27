@@ -74,7 +74,7 @@ export default function MemberTable({ sorted, maxAbsRate }) {
                     border: `1px solid ${m.color}44`,
                   }}
                 >
-                  🐴 {m.name}
+                  {m.name}
                 </div>
               </td>
 

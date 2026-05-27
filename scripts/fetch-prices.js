@@ -9,15 +9,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Yahoo Finance 심볼: .KS = 코스피, .KQ = 코스닥
 // 심볼 확인: https://finance.yahoo.com/lookup
 const KRX_STOCKS = [
-  { id: 'hyemin',   symbol: '189350.KQ', name: '도이치모터스' },
+  { id: 'hyemin',   symbol: '067990.KQ', name: '도이치모터스' },
   { id: 'hyejun',   symbol: '069960.KS', name: '현대백화점'   },
-  { id: 'seunggi',  symbol: '008260.KS', name: 'KBI동양철관'  },
+  { id: 'seunggi',  symbol: '008970.KS', name: 'KBI동양철관'  },
   { id: 'junyoung', symbol: '005380.KS', name: '현대차'        },
-  { id: 'yewon',    symbol: '006220.KQ', name: '한국파마'      },
-]
-
-const CRYPTO = [
-  { id: 'seohyeon', coinId: 'qtum', name: 'QTUM' },
+  { id: 'yewon',    symbol: '032300.KQ', name: '한국파마'      },
+  { id: 'seohyeon', symbol: 'QTUM',      name: 'QTUM ETF'      },
 ]
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -56,41 +53,46 @@ async function getYahooAuth() {
   return null
 }
 
-async function fetchYahooPrice(symbol, auth) {
-  // Attempt 1: without crumb
+function parseHistory(chart) {
+  const timestamps = chart?.timestamp ?? []
+  const closes = chart?.indicators?.quote?.[0]?.close ?? []
+  return timestamps
+    .map((timestamp, index) => ({
+      date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+      close: closes[index],
+    }))
+    .filter(point => Number.isFinite(point.close))
+}
+
+async function fetchYahooChart(symbol, auth, range = '1d') {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&includePrePost=false`
     const data = curlGet(url)
-    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
-    if (price) return price
+    const chart = data?.chart?.result?.[0]
+    if (chart?.meta?.regularMarketPrice) return chart
   } catch { /* fallthrough */ }
 
   await delay(1000)
 
-  // Attempt 2: with crumb
   if (auth) {
     try {
-      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d&crumb=${encodeURIComponent(auth.crumb)}`
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&crumb=${encodeURIComponent(auth.crumb)}`
       const result = execSync(
         `curl -s --max-time 12 --retry 1 -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" -H "Cookie: ${auth.cookie}" "${url}"`,
         { encoding: 'utf-8', timeout: 18000 }
       )
       const data = JSON.parse(result)
-      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
-      if (price) return price
+      const chart = data?.chart?.result?.[0]
+      if (chart?.meta?.regularMarketPrice) return chart
     } catch { /* fallthrough */ }
   }
 
   return null
 }
 
-async function fetchCoinGeckoPrice(coinId) {
-  try {
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
-    const data = curlGet(url)
-    return data?.[coinId]?.usd ?? null
-  } catch { /* fallthrough */ }
-  return null
+async function fetchYahooPrice(symbol, auth) {
+  const chart = await fetchYahooChart(symbol, auth)
+  return chart?.meta?.regularMarketPrice ?? null
 }
 
 async function main() {
@@ -100,23 +102,31 @@ async function main() {
   console.log(auth?.crumb ? `[fetch-prices] Yahoo 인증 성공: ${auth.crumb}` : '[fetch-prices] Yahoo 인증 건너뜀')
 
   const prices = {}
+  const histories = {}
 
   for (const s of KRX_STOCKS) {
-    const price = await fetchYahooPrice(s.symbol, auth)
+    const chart = await fetchYahooChart(s.symbol, auth, '1mo')
+    const price = chart?.meta?.regularMarketPrice ?? null
     prices[s.id] = price
+    histories[s.id] = parseHistory(chart)
     console.log(`[fetch-prices] ${s.name} (${s.symbol}): ${price ?? '실패'}`)
     await delay(1200)
   }
 
-  for (const c of CRYPTO) {
-    const price = await fetchCoinGeckoPrice(c.coinId)
-    prices[c.id] = price
-    console.log(`[fetch-prices] ${c.name}: ${price ?? '실패'}`)
+  const usdKrw = await fetchYahooPrice('USDKRW=X', auth)
+  console.log(`[fetch-prices] USD/KRW (USDKRW=X): ${usdKrw ?? '실패'}`)
+
+  if (!Object.values(prices).some(price => price !== null)) {
+    throw new Error('모든 시세 수집 실패: 기존 data.json을 보존합니다')
   }
 
   const output = {
     updatedAt: new Date().toISOString(),
     prices,
+    histories,
+    exchangeRates: {
+      usdKrw,
+    },
   }
 
   const outPath = path.join(__dirname, '..', 'public', 'data.json')

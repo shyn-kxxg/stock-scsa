@@ -3,10 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  schedule:
-    # 평일 KST 09:00~17:00 (UTC 00:00~08:00), 2시간마다 시세 갱신
-    - cron: '0 0,2,4,6,8 * * 1-5'
   workflow_dispatch:
+  schedule:
+    # KST weekdays 09:00-18:00, every 2 hours.
+    - cron: '0 0-9/2 * * 1-5'
 
 permissions:
   contents: write
@@ -29,12 +29,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Fetch latest stock prices
-        run: node scripts/fetch-prices.js
-        continue-on-error: true  # 시세 수집 실패해도 빌드는 계속
-
       - name: Install dependencies
         run: npm ci
+
+      - name: Fetch latest public prices
+        run: npm run fetch-prices
+        continue-on-error: true
 
       - name: Build
         run: npm run build
@@ -44,4 +44,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          commit_message: 'deploy: update prices ${{ github.sha }}'
+          commit_message: 'deploy: ${{ github.sha }}'
