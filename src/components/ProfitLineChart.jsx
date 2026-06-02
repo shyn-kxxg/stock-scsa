@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 function fmtRate(rate) {
   const sign = rate > 0 ? '+' : ''
   return `${sign}${rate.toFixed(1)}%`
@@ -15,6 +17,16 @@ function buildPath(points, xForDate, yForRate) {
 }
 
 export default function ProfitLineChart({ members }) {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 639px)')
+    const update = () => setIsMobile(mediaQuery.matches)
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [])
+
   const series = members
     .map(member => ({
       ...member,
@@ -38,10 +50,10 @@ export default function ProfitLineChart({ members }) {
   const yMin = minRate - padding
   const yMax = maxRate + padding
 
-  const left = 58
-  const right = 24
-  const dayWidth = 30
-  const minWidth = 504
+  const left = isMobile ? 36 : 58
+  const right = isMobile ? 12 : 24
+  const dayWidth = isMobile ? 15 : 40
+  const minWidth = isMobile ? 360 : 720
   const width = Math.max(minWidth, left + right + Math.max(dates.length - 1, 1) * dayWidth)
   const height = 360
   const top = 26
@@ -64,7 +76,7 @@ export default function ProfitLineChart({ members }) {
   })
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">
+    <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-2 sm:p-4">
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         {series.map(member => (
           <div key={member.id} className="flex items-center gap-2 text-xs text-gray-400">
