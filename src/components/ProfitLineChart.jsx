@@ -38,10 +38,12 @@ export default function ProfitLineChart({ members }) {
   const yMin = minRate - padding
   const yMax = maxRate + padding
 
-  const width = 920
-  const height = 360
   const left = 58
   const right = 24
+  const dayWidth = 30
+  const minWidth = 504
+  const width = Math.max(minWidth, left + right + Math.max(dates.length - 1, 1) * dayWidth)
+  const height = 360
   const top = 26
   const bottom = 50
   const plotWidth = width - left - right
@@ -80,7 +82,8 @@ export default function ProfitLineChart({ members }) {
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="h-[320px] min-w-[720px] w-full"
+          className="h-[320px] max-w-none mx-auto"
+          style={{ width: `${width}px` }}
           role="img"
           aria-label="일자별 수익률 선그래프"
         >

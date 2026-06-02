@@ -2,10 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { MEMBERS } from '../data/members'
 
 const YAHOO_MEMBERS = MEMBERS.filter(m => m.type === 'stock')
+const CHART_START_DATE = '2026-05-22'
 
 // Yahoo Finance v8 chart endpoint (no API key, publicly documented)
 function yahooUrl(symbol, range = '1d') {
   return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&includePrePost=false`
+}
+
+function yahooHistoryUrl(symbol) {
+  const period1 = Math.floor(new Date(`${CHART_START_DATE}T00:00:00Z`).getTime() / 1000)
+  const period2 = Math.floor(Date.now() / 1000)
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${period1}&period2=${period2}&includePrePost=false`
 }
 
 // CORS proxies tried in order
@@ -47,11 +54,11 @@ function parseHistory(chart) {
       date: new Date(timestamp * 1000).toISOString().slice(0, 10),
       close: closes[index],
     }))
-    .filter(point => Number.isFinite(point.close))
+    .filter(point => Number.isFinite(point.close) && point.date >= CHART_START_DATE)
 }
 
 async function fetchYahooMarketData(symbol) {
-  const chart = await fetchChartWithProxyFallback(yahooUrl(symbol, '1mo'), symbol)
+  const chart = await fetchChartWithProxyFallback(yahooHistoryUrl(symbol), symbol)
   return {
     price: chart?.meta?.regularMarketPrice ?? null,
     history: parseHistory(chart),

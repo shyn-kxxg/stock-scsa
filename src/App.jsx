@@ -2,15 +2,19 @@ import { MEMBERS } from './data/members'
 import { useLivePrices } from './hooks/useLivePrices'
 import Dashboard from './components/Dashboard'
 
+const CHART_START_DATE = '2026-05-22'
+
 export default function App() {
   const { prices, histories, usdKrw, updatedAt, loading, isLive, error, refresh } = useLivePrices()
 
   const membersWithStats = MEMBERS.map(m => {
     const currentPrice = prices?.[m.id] ?? null
-    const historyRates = (histories?.[m.id] ?? []).map(point => ({
-      date: point.date,
-      rate: ((point.close - m.purchasePrice) / m.purchasePrice) * 100,
-    }))
+    const historyRates = (histories?.[m.id] ?? [])
+      .filter(point => point.date >= CHART_START_DATE)
+      .map(point => ({
+        date: point.date,
+        rate: ((point.close - m.purchasePrice) / m.purchasePrice) * 100,
+      }))
     const profitRate =
       currentPrice !== null
         ? ((currentPrice - m.purchasePrice) / m.purchasePrice) * 100

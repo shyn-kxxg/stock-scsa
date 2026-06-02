@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const CHART_START_DATE = '2026-05-22'
 
 // ── 종목 설정 ────────────────────────────────────────────────────────────────
 // Yahoo Finance 심볼: .KS = 코스피, .KQ = 코스닥
@@ -61,12 +62,16 @@ function parseHistory(chart) {
       date: new Date(timestamp * 1000).toISOString().slice(0, 10),
       close: closes[index],
     }))
-    .filter(point => Number.isFinite(point.close))
+    .filter(point => Number.isFinite(point.close) && point.date >= CHART_START_DATE)
 }
 
 async function fetchYahooChart(symbol, auth, range = '1d') {
+  const query = range === 'fromStartDate'
+    ? `period1=${Math.floor(new Date(`${CHART_START_DATE}T00:00:00Z`).getTime() / 1000)}&period2=${Math.floor(Date.now() / 1000)}`
+    : `range=${range}`
+
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&includePrePost=false`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&${query}&includePrePost=false`
     const data = curlGet(url)
     const chart = data?.chart?.result?.[0]
     if (chart?.meta?.regularMarketPrice) return chart
@@ -76,7 +81,7 @@ async function fetchYahooChart(symbol, auth, range = '1d') {
 
   if (auth) {
     try {
-      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&crumb=${encodeURIComponent(auth.crumb)}`
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&${query}&crumb=${encodeURIComponent(auth.crumb)}`
       const result = execSync(
         `curl -s --max-time 12 --retry 1 -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" -H "Cookie: ${auth.cookie}" "${url}"`,
         { encoding: 'utf-8', timeout: 18000 }
@@ -105,7 +110,7 @@ async function main() {
   const histories = {}
 
   for (const s of KRX_STOCKS) {
-    const chart = await fetchYahooChart(s.symbol, auth, '1mo')
+    const chart = await fetchYahooChart(s.symbol, auth, 'fromStartDate')
     const price = chart?.meta?.regularMarketPrice ?? null
     prices[s.id] = price
     histories[s.id] = parseHistory(chart)
