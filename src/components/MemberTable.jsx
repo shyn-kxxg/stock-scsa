@@ -39,14 +39,16 @@ function fmtAmount(amount, currency) {
 
 export default function MemberTable({ sorted, maxAbsRate }) {
   const headers = [
-    '순위',
-    '이름',
-    '종목',
-    '수익률 그래프',
-    '수익률',
-    '수익 금액',
-    '구매 단가',
-    '현재 주가',
+    { label: '순위' },
+    { label: '이름' },
+    { label: '종목' },
+    { label: '구매 단가', className: 'hidden sm:table-cell' },
+    { label: '현재 주가', className: 'hidden sm:table-cell' },
+    { label: '수익률 그래프' },
+    { label: '수익률' },
+    { label: '수익 금액' },
+    { label: '구매 단가', className: 'sm:hidden' },
+    { label: '현재 주가', className: 'sm:hidden' },
   ]
 
   return (
@@ -54,12 +56,12 @@ export default function MemberTable({ sorted, maxAbsRate }) {
       <table className="w-full min-w-[760px] border-collapse">
         <thead>
           <tr className="border-b border-gray-800 bg-gray-900/40">
-            {headers.map(h => (
+            {headers.map((h, index) => (
               <th
-                key={h}
-                className="py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left first:pl-5 last:pr-5"
+                key={`${h.label}-${index}`}
+                className={`py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left first:pl-5 last:pr-5 ${h.className ?? ''}`}
               >
-                {h}
+                {h.label}
               </th>
             ))}
           </tr>
@@ -94,6 +96,20 @@ export default function MemberTable({ sorted, maxAbsRate }) {
                 <span className="text-sm text-gray-300">{m.stock}</span>
               </td>
 
+              {/* Purchase price - desktop */}
+              <td className="hidden sm:table-cell py-4 px-3 whitespace-nowrap text-right">
+                <span className="text-sm text-gray-400 tabular-nums">
+                  {fmtPrice(m.purchasePrice, m.currency)}
+                </span>
+              </td>
+
+              {/* Current price - desktop */}
+              <td className="hidden sm:table-cell py-4 px-3 whitespace-nowrap text-right">
+                <span className="text-sm text-gray-200 tabular-nums font-medium">
+                  {fmtPrice(m.currentPrice, m.currency)}
+                </span>
+              </td>
+
               {/* Bar */}
               <td className="py-4 px-3 w-48 min-w-[160px]">
                 <RacingBar
@@ -113,15 +129,15 @@ export default function MemberTable({ sorted, maxAbsRate }) {
                 {fmtAmount(m.profitAmount, m.currency)}
               </td>
 
-              {/* Purchase price */}
-              <td className="py-4 px-3 whitespace-nowrap text-right">
+              {/* Purchase price - mobile */}
+              <td className="sm:hidden py-4 px-3 whitespace-nowrap text-right">
                 <span className="text-sm text-gray-400 tabular-nums">
                   {fmtPrice(m.purchasePrice, m.currency)}
                 </span>
               </td>
 
-              {/* Current price */}
-              <td className="py-4 px-3 pr-5 whitespace-nowrap text-right">
+              {/* Current price - mobile */}
+              <td className="sm:hidden py-4 px-3 pr-5 whitespace-nowrap text-right">
                 <span className="text-sm text-gray-200 tabular-nums font-medium">
                   {fmtPrice(m.currentPrice, m.currency)}
                 </span>
