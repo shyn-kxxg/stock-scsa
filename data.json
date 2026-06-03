@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-03T02:59:34.156Z",
+  "updatedAt": "2026-06-03T08:49:19.050Z",
   "prices": {
     "hyemin": 4250,
     "hyejun": 121800,
@@ -191,6 +191,6 @@
     ]
   },
   "exchangeRates": {
-    "usdKrw": 1518.52
+    "usdKrw": 1526.6
   }
 }
