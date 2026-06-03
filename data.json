@@ -1,12 +1,12 @@
 {
-  "updatedAt": "2026-06-02T14:25:55.427Z",
+  "updatedAt": "2026-06-03T02:59:34.156Z",
   "prices": {
     "hyemin": 4250,
     "hyejun": 121800,
     "seunggi": 1364,
     "junyoung": 729000,
     "yewon": 9390,
-    "seohyeon": 166.765
+    "seohyeon": 168.76
   },
   "histories": {
     "hyemin": [
@@ -186,11 +186,11 @@
       },
       {
         "date": "2026-06-02",
-        "close": 166.76499938964844
+        "close": 168.75999450683594
       }
     ]
   },
   "exchangeRates": {
-    "usdKrw": 1516.68
+    "usdKrw": 1518.52
   }
 }
