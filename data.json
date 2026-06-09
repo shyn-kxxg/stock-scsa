@@ -1,11 +1,11 @@
 {
-  "updatedAt": "2026-06-09T02:28:48.213Z",
+  "updatedAt": "2026-06-09T07:40:22.044Z",
   "prices": {
-    "hyemin": 4240,
-    "hyejun": 166100,
-    "seunggi": 1321,
-    "junyoung": 623000,
-    "yewon": 8610,
+    "hyemin": 4195,
+    "hyejun": 166800,
+    "seunggi": 1303,
+    "junyoung": 639000,
+    "yewon": 8670,
     "seohyeon": 157.74
   },
   "histories": {
@@ -52,7 +52,7 @@
       },
       {
         "date": "2026-06-09",
-        "close": 4240
+        "close": 4195
       }
     ],
     "hyejun": [
@@ -98,7 +98,7 @@
       },
       {
         "date": "2026-06-09",
-        "close": 166100
+        "close": 166800
       }
     ],
     "seunggi": [
@@ -144,7 +144,7 @@
       },
       {
         "date": "2026-06-09",
-        "close": 1321
+        "close": 1303
       }
     ],
     "junyoung": [
@@ -190,7 +190,7 @@
       },
       {
         "date": "2026-06-09",
-        "close": 623000
+        "close": 639000
       }
     ],
     "yewon": [
@@ -236,7 +236,7 @@
       },
       {
         "date": "2026-06-09",
-        "close": 8610
+        "close": 8670
       }
     ],
     "seohyeon": [
@@ -287,6 +287,6 @@
     ]
   },
   "exchangeRates": {
-    "usdKrw": 1515.88
+    "usdKrw": 1517.29
   }
 }
