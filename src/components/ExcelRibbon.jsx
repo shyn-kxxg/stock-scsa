@@ -18,6 +18,7 @@ export default function ExcelRibbon({ activeTab, onTabChange }) {
           {['💾', '↩', '↪'].map((icon, i) => (
             <button
               key={i}
+              type="button"
               className="text-white opacity-80 hover:opacity-100 text-xs px-1"
               title={['저장', '실행 취소', '다시 실행'][i]}
             >
@@ -32,6 +33,7 @@ export default function ExcelRibbon({ activeTab, onTabChange }) {
           {['－', '□', '✕'].map((c, i) => (
             <button
               key={i}
+              type="button"
               className="text-white text-xs w-8 h-5 hover:bg-white/20 flex items-center justify-center"
             >
               {c}
@@ -48,6 +50,7 @@ export default function ExcelRibbon({ activeTab, onTabChange }) {
         {tabs.map(tab => (
           <button
             key={tab}
+            type="button"
             onClick={() => onTabChange(tab)}
             className="px-3 py-1 text-xs rounded-t-sm transition-colors"
             style={

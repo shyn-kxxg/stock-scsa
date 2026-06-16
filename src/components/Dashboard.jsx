@@ -18,7 +18,7 @@ function formatUpdatedAt(iso) {
       second: '2-digit',
     })
   } catch {
-    return iso
+    return null
   }
 }
 
