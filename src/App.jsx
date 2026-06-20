@@ -1,6 +1,7 @@
 import { MEMBERS } from './data/members'
 import { useLivePrices } from './hooks/useLivePrices'
 import Dashboard from './components/Dashboard'
+import { ExcelModeProvider } from './context/ExcelModeContext'
 
 const CHART_START_DATE = '2026-05-22'
 
@@ -51,14 +52,16 @@ export default function App() {
   })()
 
   return (
-    <Dashboard
-      members={membersWithStats}
-      totalStats={totalStats}
-      updatedAt={updatedAt}
-      loading={loading}
-      isLive={isLive}
-      fetchError={error}
-      onRefresh={refresh}
-    />
+    <ExcelModeProvider>
+      <Dashboard
+        members={membersWithStats}
+        totalStats={totalStats}
+        updatedAt={updatedAt}
+        loading={loading}
+        isLive={isLive}
+        fetchError={error}
+        onRefresh={refresh}
+      />
+    </ExcelModeProvider>
   )
 }

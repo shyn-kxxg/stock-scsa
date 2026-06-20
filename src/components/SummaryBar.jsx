@@ -1,3 +1,5 @@
+import { useExcelMode } from '../context/ExcelModeContext'
+
 function fmtKrw(value, { signed = false } = {}) {
   if (value === null || value === undefined) return '-'
   const sign = signed ? (value > 0 ? '+' : value < 0 ? '-' : '') : ''
@@ -19,7 +21,66 @@ function fmtUsdKrw(rate) {
 }
 
 export default function SummaryBar({ totalStats }) {
+  const { excelMode } = useExcelMode()
   const positive = totalStats?.profitRate >= 0
+
+  if (excelMode) {
+    return (
+      <div className="border" style={{ borderColor: '#c0c0c0', fontFamily: 'Calibri, Arial, sans-serif' }}>
+        {/* Excel-style header row */}
+        <div
+          className="grid grid-cols-5 border-b"
+          style={{ background: '#217346', borderColor: '#1a5c30' }}
+        >
+          {['항목', '총 수익률', '총 투자금', '현재 평가금', '총 손익'].map(h => (
+            <div
+              key={h}
+              className="px-3 py-1.5 text-xs font-semibold text-white border-r last:border-r-0"
+              style={{ borderColor: '#1a5c30' }}
+            >
+              {h}
+            </div>
+          ))}
+        </div>
+        {/* Data row */}
+        <div className="grid grid-cols-5" style={{ background: 'white' }}>
+          <div className="px-3 py-2 text-xs border-r" style={{ borderColor: '#e0e0e0', color: '#444' }}>
+            이번달 합계
+          </div>
+          <div
+            className="px-3 py-2 text-sm font-bold border-r tabular-nums"
+            style={{
+              borderColor: '#e0e0e0',
+              color: totalStats ? (positive ? '#1a7a3c' : '#c62828') : '#999',
+            }}
+          >
+            {fmtRate(totalStats?.profitRate)}
+          </div>
+          <div className="px-3 py-2 text-xs border-r tabular-nums" style={{ borderColor: '#e0e0e0', color: '#444' }}>
+            {fmtKrw(totalStats?.investmentKrw)}
+          </div>
+          <div className="px-3 py-2 text-xs border-r tabular-nums" style={{ borderColor: '#e0e0e0', color: '#444' }}>
+            {fmtKrw(totalStats?.currentValueKrw)}
+          </div>
+          <div
+            className="px-3 py-2 text-xs tabular-nums font-semibold"
+            style={{ color: totalStats ? (positive ? '#1a7a3c' : '#c62828') : '#999' }}
+          >
+            {fmtKrw(totalStats?.profitKrw, { signed: true })}
+          </div>
+        </div>
+        {/* USD/KRW row */}
+        <div className="grid grid-cols-5 border-t" style={{ borderColor: '#e0e0e0', background: '#f9f9f9' }}>
+          <div className="px-3 py-1.5 text-xs border-r" style={{ borderColor: '#e0e0e0', color: '#888' }}>
+            환율 (USD/KRW)
+          </div>
+          <div className="col-span-4 px-3 py-1.5 text-xs tabular-nums" style={{ color: '#444' }}>
+            {fmtUsdKrw(totalStats?.usdKrw)}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 sm:p-5">
