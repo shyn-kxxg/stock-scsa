@@ -3,6 +3,7 @@ import SummaryBar from './SummaryBar'
 import MemberTable from './MemberTable'
 import ProfitLineChart from './ProfitLineChart'
 import ExcelRibbon from './ExcelRibbon'
+import CumulativeTable from './CumulativeTable'
 import { useExcelMode } from '../context/ExcelModeContext'
 
 function formatUpdatedAt(iso) {
@@ -22,9 +23,22 @@ function formatUpdatedAt(iso) {
   }
 }
 
-export default function Dashboard({ members, totalStats, updatedAt, loading, isLive, fetchError, onRefresh }) {
+export default function Dashboard({
+  members,
+  totalStats,
+  months,
+  activeMonthId,
+  onMonthChange,
+  cumulativeMembers,
+  updatedAt,
+  loading,
+  isLive,
+  fetchError,
+  onRefresh,
+}) {
   const { excelMode, setExcelMode } = useExcelMode()
   const [activeTab, setActiveTab] = useState('홈')
+  const [chartMode, setChartMode] = useState('daily')
 
   const sorted = [...members].sort((a, b) => {
     if (a.profitRate === null && b.profitRate === null) return 0
@@ -37,6 +51,10 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
   const maxAbsRate = validRates.length > 0
     ? Math.max(...validRates.map(r => Math.abs(r)), 0.01)
     : 0.01
+  const cumulativeRates = cumulativeMembers.map(m => m.profitRate).filter(r => r !== null)
+  const maxAbsCumulativeRate = cumulativeRates.length > 0
+    ? Math.max(...cumulativeRates.map(r => Math.abs(r)), 0.01)
+    : 0.01
 
   if (excelMode) {
     return (
@@ -46,6 +64,13 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
       >
         {/* Excel Ribbon */}
         <ExcelRibbon activeTab={activeTab} onTabChange={setActiveTab} />
+
+        <MonthTabs
+          months={months}
+          activeMonthId={activeMonthId}
+          onMonthChange={onMonthChange}
+          excelMode
+        />
 
         {/* Column headers bar (A B C ...) */}
         <div
@@ -148,7 +173,7 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
               {!loading && validRates.length > 0 && (
                 <section>
                   <div className="text-xs font-semibold mb-1 px-0.5" style={{ color: '#217346', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    이번달 총 합계 수익률
+                    선택 월 총 합계 수익률
                   </div>
                   <SummaryBar totalStats={totalStats} />
                 </section>
@@ -157,10 +182,13 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
               {/* Chart */}
               {!loading && validRates.length > 0 && (
                 <section>
-                  <div className="text-xs font-semibold mb-1 px-0.5" style={{ color: '#217346', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    일자별 수익률
+                  <div className="mb-1 flex items-center justify-between gap-3 px-0.5">
+                    <div className="text-xs font-semibold" style={{ color: '#217346', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      수익률 그래프
+                    </div>
+                    <ChartModeToggle value={chartMode} onChange={setChartMode} excelMode />
                   </div>
-                  <ProfitLineChart members={sorted} />
+                  <ProfitLineChart members={sorted} mode={chartMode} />
                 </section>
               )}
 
@@ -171,6 +199,15 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
                     상세 데이터
                   </div>
                   <MemberTable sorted={sorted} maxAbsRate={maxAbsRate} />
+                </section>
+              )}
+
+              {!loading && cumulativeMembers.length > 0 && (
+                <section>
+                  <div className="text-xs font-semibold mb-1 px-0.5" style={{ color: '#217346', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    누적 수익률
+                  </div>
+                  <CumulativeTable rows={cumulativeMembers} maxAbsRate={maxAbsCumulativeRate} />
                 </section>
               )}
 
@@ -213,6 +250,11 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
   // Default dark mode
   return (
     <div className="min-h-screen bg-[#0d0d1a] text-gray-100">
+      <MonthTabs
+        months={months}
+        activeMonthId={activeMonthId}
+        onMonthChange={onMonthChange}
+      />
       {/* Header */}
       <header className="pt-6 pb-4 px-4 text-center relative">
         {/* Excel mode toggle - top right */}
@@ -288,10 +330,13 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
 
         {!loading && validRates.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-2 px-1">
-              일자별 수익률
-            </h2>
-            <ProfitLineChart members={sorted} />
+            <div className="mb-2 flex items-center justify-between gap-3 px-1">
+              <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-widest">
+                수익률 그래프
+              </h2>
+              <ChartModeToggle value={chartMode} onChange={setChartMode} />
+            </div>
+            <ProfitLineChart members={sorted} mode={chartMode} />
           </section>
         )}
 
@@ -303,6 +348,15 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
             <MemberTable sorted={sorted} maxAbsRate={maxAbsRate} />
           </section>
         )}
+
+        {!loading && cumulativeMembers.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-2 px-1">
+              누적 수익률
+            </h2>
+            <CumulativeTable rows={cumulativeMembers} maxAbsRate={maxAbsCumulativeRate} />
+          </section>
+        )}
       </main>
 
       <footer className="text-center py-6 border-t border-gray-800/50">
@@ -310,6 +364,116 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
           데이터 출처: Yahoo Finance · 5분마다 자동 갱신
         </p>
       </footer>
+    </div>
+  )
+}
+
+function MonthTabs({ months, activeMonthId, onMonthChange, excelMode = false }) {
+  if (excelMode) {
+    return (
+      <div className="flex items-center gap-0 border-b" style={{ background: '#f8f8f8', borderColor: '#c0c0c0', height: 34 }}>
+        <div className="px-3 text-xs font-semibold" style={{ color: '#111' }}>월별 보기</div>
+        {months.map(month => {
+          const active = month.id === activeMonthId
+          return (
+            <button
+              key={month.id}
+              type="button"
+              onClick={() => onMonthChange(month.id)}
+              className="h-full px-4 text-xs border-l border-r"
+              style={{
+                borderColor: '#c0c0c0',
+                background: active ? 'white' : '#eeeeee',
+                color: '#111',
+                borderTop: active ? '2px solid #217346' : '2px solid transparent',
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {month.label}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className="sticky top-0 z-20 border-b border-gray-800 bg-[#0d0d1a]/95 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2">
+        <span className="text-xs font-semibold uppercase tracking-widest text-gray-600">월별 보기</span>
+        {months.map(month => {
+          const active = month.id === activeMonthId
+          return (
+            <button
+              key={month.id}
+              type="button"
+              onClick={() => onMonthChange(month.id)}
+              className={`h-8 px-4 text-sm font-semibold transition-colors ${
+                active
+                  ? 'rounded-md bg-emerald-500 text-gray-950'
+                  : 'rounded-md border border-gray-800 text-gray-500 hover:border-gray-700 hover:text-gray-300'
+              }`}
+            >
+              {month.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ChartModeToggle({ value, onChange, excelMode = false }) {
+  const options = [
+    { id: 'daily', label: '일간' },
+    { id: 'ten-minute', label: '10분' },
+  ]
+
+  if (excelMode) {
+    return (
+      <div className="inline-flex border" style={{ borderColor: '#c0c0c0', background: '#f2f2f2' }}>
+        {options.map(option => {
+          const active = option.id === value
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange(option.id)}
+              className="px-3 py-1 text-xs border-r last:border-r-0"
+              style={{
+                borderColor: '#c0c0c0',
+                background: active ? '#217346' : 'white',
+                color: active ? 'white' : '#111',
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {option.label}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className="inline-flex rounded-lg border border-gray-800 bg-gray-900/60 p-0.5">
+      {options.map(option => {
+        const active = option.id === value
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            className={`h-7 px-3 text-xs font-semibold transition-colors ${
+              active
+                ? 'rounded-md bg-emerald-400 text-gray-950'
+                : 'rounded-md text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

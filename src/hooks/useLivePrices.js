@@ -15,35 +15,39 @@ function yahooHistoryUrl(symbol) {
   return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${period1}&period2=${period2}&includePrePost=false`
 }
 
-// CORS proxies tried in order
-const PROXIES = [
-  url => url,                                                        // direct (works if Yahoo allows CORS for this IP)
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-]
+function yahooIntradayUrl(symbol) {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=false`
+}
 
-async function fetchChartWithProxyFallback(rawUrl, expectedSymbol) {
-  for (const proxy of PROXIES) {
-    try {
-      const res = await fetch(proxy(rawUrl), {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
-      })
-      if (!res.ok) continue
-      const data = await res.json()
-      const meta = data?.chart?.result?.[0]?.meta
-      if (expectedSymbol && meta?.symbol && meta.symbol !== expectedSymbol) continue
-      if (meta) return data?.chart?.result?.[0] ?? null
-    } catch {
-      // try next proxy
-    }
+function validNumber(value) {
+  return Number.isFinite(value) ? value : null
+}
+
+function validDateString(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+async function fetchChart(rawUrl, expectedSymbol) {
+  try {
+    const res = await fetch(rawUrl, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const chart = data?.chart?.result?.[0] ?? null
+    const meta = chart?.meta
+    if (!meta) return null
+    if (expectedSymbol && meta.symbol && meta.symbol !== expectedSymbol) return null
+    return chart
+  } catch {
+    return null
   }
-  return null
 }
 
 async function fetchYahooPrice(symbol) {
-  const chart = await fetchChartWithProxyFallback(yahooUrl(symbol), symbol)
-  return chart?.meta?.regularMarketPrice ?? null
+  const chart = await fetchChart(yahooUrl(symbol), symbol)
+  return validNumber(chart?.meta?.regularMarketPrice)
 }
 
 function parseHistory(chart) {
@@ -57,11 +61,36 @@ function parseHistory(chart) {
     .filter(point => Number.isFinite(point.close) && point.date >= CHART_START_DATE)
 }
 
+function parseTenMinuteHistory(chart) {
+  const timestamps = chart?.timestamp ?? []
+  const closes = chart?.indicators?.quote?.[0]?.close ?? []
+  const buckets = new Map()
+
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const close = closes[index]
+    if (!Number.isFinite(close)) continue
+    const timestampMs = timestamps[index] * 1000
+    const bucketMs = Math.floor(timestampMs / (10 * 60 * 1000)) * 10 * 60 * 1000
+    buckets.set(bucketMs, {
+      timestamp: new Date(bucketMs).toISOString(),
+      close,
+    })
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, point]) => point)
+}
+
 async function fetchYahooMarketData(symbol) {
-  const chart = await fetchChartWithProxyFallback(yahooHistoryUrl(symbol), symbol)
+  const [chart, intradayChart] = await Promise.all([
+    fetchChart(yahooHistoryUrl(symbol), symbol),
+    fetchChart(yahooIntradayUrl(symbol), symbol),
+  ])
   return {
-    price: chart?.meta?.regularMarketPrice ?? null,
+    price: validNumber(chart?.meta?.regularMarketPrice),
     history: parseHistory(chart),
+    tenMinuteHistory: parseTenMinuteHistory(intradayChart),
   }
 }
 
@@ -72,13 +101,15 @@ async function fetchAllMarketData() {
 
   const prices = {}
   const histories = {}
+  const tenMinuteHistories = {}
 
   for (const [id, data] of stockResults) {
     prices[id] = data.price
     histories[id] = data.history
+    tenMinuteHistories[id] = data.tenMinuteHistory
   }
 
-  return { prices, histories }
+  return { prices, histories, tenMinuteHistories }
 }
 
 async function fetchUsdKrw() {
@@ -93,13 +124,35 @@ async function fetchSnapshotPrices() {
     })
     if (!res.ok) return null
     const data = await res.json()
-    const prices = data?.prices ?? null
+    const rawPrices = data?.prices ?? null
+    const prices = rawPrices && Object.fromEntries(
+      MEMBERS.map(member => [member.id, validNumber(rawPrices[member.id])]),
+    )
     if (!prices || !Object.values(prices).some(p => p !== null)) return null
+    const rawHistories = data?.histories ?? {}
+    const histories = Object.fromEntries(
+      MEMBERS.map(member => [
+        member.id,
+        (rawHistories[member.id] ?? []).filter(point => (
+          validDateString(point?.date) && Number.isFinite(point?.close)
+        )),
+      ]),
+    )
+    const rawTenMinuteHistories = data?.tenMinuteHistories ?? {}
+    const tenMinuteHistories = Object.fromEntries(
+      MEMBERS.map(member => [
+        member.id,
+        (rawTenMinuteHistories[member.id] ?? []).filter(point => (
+          typeof point?.timestamp === 'string' && Number.isFinite(point?.close)
+        )),
+      ]),
+    )
     return {
       prices,
-      histories: data?.histories ?? {},
-      usdKrw: data?.exchangeRates?.usdKrw ?? null,
-      updatedAt: data.updatedAt ?? null,
+      histories,
+      tenMinuteHistories,
+      usdKrw: validNumber(data?.exchangeRates?.usdKrw),
+      updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
     }
   } catch {
     return null
@@ -111,6 +164,7 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000 // 5분마다 자동 갱신
 export function useLivePrices() {
   const [prices, setPrices] = useState(null)
   const [histories, setHistories] = useState({})
+  const [tenMinuteHistories, setTenMinuteHistories] = useState({})
   const [usdKrw, setUsdKrw] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -125,6 +179,7 @@ export function useLivePrices() {
       if (snapshot) {
         setPrices(snapshot.prices)
         setHistories(snapshot.histories)
+        setTenMinuteHistories(snapshot.tenMinuteHistories)
         setUsdKrw(snapshot.usdKrw)
         setUpdatedAt(snapshot.updatedAt)
         setIsLive(false)
@@ -147,8 +202,15 @@ export function useLivePrices() {
             Object.entries(liveData.histories).filter(([, history]) => history.length > 0),
           ),
         }
+        const mergedTenMinuteHistories = {
+          ...(snapshot?.tenMinuteHistories ?? {}),
+          ...Object.fromEntries(
+            Object.entries(liveData.tenMinuteHistories).filter(([, history]) => history.length > 0),
+          ),
+        }
         setPrices(merged)
         setHistories(mergedHistories)
+        setTenMinuteHistories(mergedTenMinuteHistories)
         setUsdKrw(liveUsdKrw ?? snapshot?.usdKrw ?? null)
         setUpdatedAt(new Date().toISOString())
         setIsLive(true)
@@ -168,5 +230,5 @@ export function useLivePrices() {
     return () => clearInterval(timer)
   }, [refresh])
 
-  return { prices, histories, usdKrw, updatedAt, loading, isLive, error, refresh }
+  return { prices, histories, tenMinuteHistories, usdKrw, updatedAt, loading, isLive, error, refresh }
 }

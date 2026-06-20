@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,13 +18,28 @@ const KRX_STOCKS = [
 ]
 // ─────────────────────────────────────────────────────────────────────────────
 
-function curlGet(url) {
+async function fetchText(url, options = {}) {
+  const signal = AbortSignal.timeout(options.timeoutMs ?? 12000)
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: options.accept ?? 'application/json',
+      ...(options.cookie ? { Cookie: options.cookie } : {}),
+    },
+    signal,
+  })
+  if (!res.ok) return null
+  return {
+    text: await res.text(),
+    setCookie: res.headers.get('set-cookie') ?? '',
+  }
+}
+
+async function fetchJson(url, options = {}) {
   try {
-    const result = execSync(
-      `curl -s --max-time 12 --retry 2 --retry-delay 3 -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "${url}"`,
-      { encoding: 'utf-8', timeout: 20000 }
-    )
-    return JSON.parse(result)
+    const result = await fetchText(url, options)
+    if (!result?.text) return null
+    return JSON.parse(result.text)
   } catch {
     return null
   }
@@ -37,15 +51,19 @@ function delay(ms) {
 
 async function getYahooAuth() {
   try {
-    const cookie = execSync(
-      'curl -s --max-time 10 -c - -H "User-Agent: Mozilla/5.0" "https://fc.yahoo.com/" | awk \'/A3/{print "A3=" $NF}\'',
-      { encoding: 'utf-8', timeout: 15000 }
-    ).trim()
+    const fcResponse = await fetchText('https://fc.yahoo.com/', {
+      accept: 'text/html,*/*',
+      timeoutMs: 10000,
+    })
+    const cookieMatch = fcResponse?.setCookie.match(/(?:^|,\s*)(A3=[^;,\s]+)/)
+    const cookie = cookieMatch?.[1] ?? ''
 
-    const crumbResult = execSync(
-      `curl -s --max-time 10 -H "User-Agent: Mozilla/5.0" -H "Cookie: ${cookie || 'A3=d'}" "https://query2.finance.yahoo.com/v1/test/getcrumb"`,
-      { encoding: 'utf-8', timeout: 15000 }
-    ).trim()
+    const crumbResponse = await fetchText('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+      accept: 'text/plain,*/*',
+      cookie: cookie || 'A3=d',
+      timeoutMs: 10000,
+    })
+    const crumbResult = crumbResponse?.text?.trim() ?? ''
 
     if (crumbResult && crumbResult.length < 60 && !crumbResult.startsWith('<') && !crumbResult.includes('Too Many')) {
       return { crumb: crumbResult, cookie: cookie || '' }
@@ -65,14 +83,35 @@ function parseHistory(chart) {
     .filter(point => Number.isFinite(point.close) && point.date >= CHART_START_DATE)
 }
 
-async function fetchYahooChart(symbol, auth, range = '1d') {
+function parseTenMinuteHistory(chart) {
+  const timestamps = chart?.timestamp ?? []
+  const closes = chart?.indicators?.quote?.[0]?.close ?? []
+  const buckets = new Map()
+
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const close = closes[index]
+    if (!Number.isFinite(close)) continue
+    const timestampMs = timestamps[index] * 1000
+    const bucketMs = Math.floor(timestampMs / (10 * 60 * 1000)) * 10 * 60 * 1000
+    buckets.set(bucketMs, {
+      timestamp: new Date(bucketMs).toISOString(),
+      close,
+    })
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, point]) => point)
+}
+
+async function fetchYahooChart(symbol, auth, range = '1d', interval = '1d') {
   const query = range === 'fromStartDate'
     ? `period1=${Math.floor(new Date(`${CHART_START_DATE}T00:00:00Z`).getTime() / 1000)}&period2=${Math.floor(Date.now() / 1000)}`
     : `range=${range}`
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&${query}&includePrePost=false`
-    const data = curlGet(url)
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${query}&includePrePost=false`
+    const data = await fetchJson(url)
     const chart = data?.chart?.result?.[0]
     if (chart?.meta?.regularMarketPrice) return chart
   } catch { /* fallthrough */ }
@@ -81,12 +120,8 @@ async function fetchYahooChart(symbol, auth, range = '1d') {
 
   if (auth) {
     try {
-      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&${query}&crumb=${encodeURIComponent(auth.crumb)}`
-      const result = execSync(
-        `curl -s --max-time 12 --retry 1 -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" -H "Cookie: ${auth.cookie}" "${url}"`,
-        { encoding: 'utf-8', timeout: 18000 }
-      )
-      const data = JSON.parse(result)
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${query}&crumb=${encodeURIComponent(auth.crumb)}`
+      const data = await fetchJson(url, { cookie: auth.cookie, timeoutMs: 12000 })
       const chart = data?.chart?.result?.[0]
       if (chart?.meta?.regularMarketPrice) return chart
     } catch { /* fallthrough */ }
@@ -104,16 +139,21 @@ async function main() {
   console.log('[fetch-prices] 시세 데이터 수집 시작')
 
   const auth = await getYahooAuth()
-  console.log(auth?.crumb ? `[fetch-prices] Yahoo 인증 성공: ${auth.crumb}` : '[fetch-prices] Yahoo 인증 건너뜀')
+  console.log(auth?.crumb ? '[fetch-prices] Yahoo 인증 성공' : '[fetch-prices] Yahoo 인증 건너뜀')
 
   const prices = {}
   const histories = {}
+  const tenMinuteHistories = {}
 
   for (const s of KRX_STOCKS) {
-    const chart = await fetchYahooChart(s.symbol, auth, 'fromStartDate')
+    const [chart, intradayChart] = await Promise.all([
+      fetchYahooChart(s.symbol, auth, 'fromStartDate'),
+      fetchYahooChart(s.symbol, auth, '1d', '1m'),
+    ])
     const price = chart?.meta?.regularMarketPrice ?? null
     prices[s.id] = price
     histories[s.id] = parseHistory(chart)
+    tenMinuteHistories[s.id] = parseTenMinuteHistory(intradayChart)
     console.log(`[fetch-prices] ${s.name} (${s.symbol}): ${price ?? '실패'}`)
     await delay(1200)
   }
@@ -129,6 +169,7 @@ async function main() {
     updatedAt: new Date().toISOString(),
     prices,
     histories,
+    tenMinuteHistories,
     exchangeRates: {
       usdKrw,
     },

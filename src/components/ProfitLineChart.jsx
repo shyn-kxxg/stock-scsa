@@ -11,6 +11,39 @@ function fmtDate(date) {
   return `${Number(month)}/${Number(day)}`
 }
 
+function fmtTimeLabel(label) {
+  const date = new Date(label)
+  if (Number.isNaN(date.getTime())) return label
+  return date.toLocaleTimeString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const KST_MARKET_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+function isKoreanMarketOpen(timestamp) {
+  const parts = Object.fromEntries(
+    KST_MARKET_TIME_FORMATTER
+      .formatToParts(new Date(timestamp))
+      .map(part => [part.type, part.value]),
+  )
+  const weekday = parts.weekday
+  if (weekday === 'Sat' || weekday === 'Sun') return false
+
+  const hour = Number(parts.hour === '24' ? '0' : parts.hour)
+  const minute = Number(parts.minute)
+  const minutes = hour * 60 + minute
+  return minutes >= 9 * 60 && minutes <= 15 * 60 + 30
+}
+
 function fmtPrice(price, currency) {
   if (price == null) return null
   if (currency === 'USD') return `$${price.toFixed(2)}`
@@ -23,7 +56,7 @@ function buildPath(points, xForDate, yForRate) {
     .join(' ')
 }
 
-export default function ProfitLineChart({ members }) {
+export default function ProfitLineChart({ members, mode = 'daily' }) {
   const { excelMode } = useExcelMode()
   const [isMobile, setIsMobile] = useState(false)
   const [tooltip, setTooltip] = useState(null)
@@ -154,6 +187,10 @@ export default function ProfitLineChart({ members }) {
   const handleMouseLeave = useCallback(() => setTooltip(null), [])
 
   const excelSeriesColors = ['#4472C4', '#ED7D31', '#A9D18E', '#FFC000', '#5B9BD5', '#70AD47']
+
+  if (mode === 'ten-minute') {
+    return <TenMinuteLineChart members={members} excelMode={excelMode} isMobile={isMobile} />
+  }
 
   if (excelMode) {
     return (
@@ -488,6 +525,175 @@ export default function ProfitLineChart({ members }) {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function TenMinuteLineChart({ members, excelMode, isMobile }) {
+  const [now, setNow] = useState(() => Date.now())
+  const marketOpen = isKoreanMarketOpen(now)
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const series = members
+    .map(member => ({
+      ...member,
+      points: member.tenMinuteRates ?? [],
+    }))
+    .filter(member => member.points.length > 0)
+
+  if (series.length === 0) {
+    return (
+      <div
+        className={excelMode ? 'border px-6 py-4 text-sm' : 'rounded-xl border border-gray-800 bg-gray-900/40 p-6 text-center text-sm text-gray-500'}
+        style={excelMode ? { borderColor: '#c0c0c0', background: 'white', color: '#888' } : undefined}
+      >
+        10분 수익률 데이터가 아직 없습니다.
+      </div>
+    )
+  }
+
+  const slots = [...new Set(series.flatMap(member => member.points.map(point => point.date)))].sort()
+  const allRates = series.flatMap(member => member.points.map(point => point.rate))
+  const minRate = Math.min(0, ...allRates)
+  const maxRate = Math.max(0, ...allRates)
+  const padding = Math.max((maxRate - minRate) * 0.12, 0.5)
+  const yMin = minRate - padding
+  const yMax = maxRate + padding
+  const left = isMobile ? 36 : 58
+  const right = isMobile ? 12 : 24
+  const stepWidth = isMobile ? 54 : 96
+  const width = Math.max(isMobile ? 420 : 760, left + right + (slots.length - 1) * stepWidth)
+  const height = 360
+  const top = 26
+  const bottom = 50
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const yTicks = [yMax, (yMax + 0) / 2, 0, (yMin + 0) / 2, yMin]
+  const xForDate = date => {
+    const index = slots.indexOf(date)
+    if (slots.length <= 1) return left + plotWidth
+    return left + (index / (slots.length - 1)) * plotWidth
+  }
+  const yForRate = rate => top + ((yMax - rate) / (yMax - yMin)) * plotHeight
+  const excelSeriesColors = ['#4472C4', '#ED7D31', '#A9D18E', '#FFC000', '#5B9BD5', '#70AD47']
+
+  if (excelMode) {
+    return (
+      <div
+        className="border"
+        style={{ borderColor: '#c0c0c0', background: 'white', fontFamily: 'Calibri, Arial, sans-serif', position: 'relative' }}
+      >
+        <div className="px-3 py-1.5 border-b text-sm font-semibold" style={{ background: '#f2f2f2', borderColor: '#c0c0c0', color: '#333' }}>
+          차트 1 — 10분 수익률 (실시간)
+        </div>
+        <div className="px-3 pt-2 pb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+          {series.map((member, i) => (
+            <div key={member.id} className="flex items-center gap-1.5 text-xs" style={{ color: '#333' }}>
+              <span className="inline-block w-6 h-3" style={{ background: excelSeriesColors[i % excelSeriesColors.length] }} />
+              {member.name}
+            </div>
+          ))}
+          <span className="text-xs" style={{ color: '#666' }}>
+            {marketOpen ? '현재 10분 구간만 현재가 반영' : '장외 시간 - 데이터 고정'}
+          </span>
+        </div>
+        <div className="overflow-x-auto relative">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="h-[320px] max-w-none mx-auto"
+            style={{ width: `${width}px`, display: 'block' }}
+            role="img"
+            aria-label="10분 단위 실시간 수익률 선그래프"
+          >
+            <rect x={left} y={top} width={plotWidth} height={plotHeight} fill="white" stroke="#c0c0c0" strokeWidth="1" />
+            {yTicks.map(tick => (
+              <g key={tick}>
+                <line x1={left} x2={left + plotWidth} y1={yForRate(tick)} y2={yForRate(tick)} stroke={Math.abs(tick) < 0.001 ? '#888' : '#e0e0e0'} strokeWidth={Math.abs(tick) < 0.001 ? 1 : 0.8} />
+                <text x={left - 6} y={yForRate(tick) + 4} textAnchor="end" fill="#666" fontSize="10" fontFamily="Calibri, Arial, sans-serif">
+                  {fmtRate(tick)}
+                </text>
+              </g>
+            ))}
+            {slots.map(slot => (
+              <g key={slot}>
+                <line x1={xForDate(slot)} x2={xForDate(slot)} y1={top} y2={top + plotHeight} stroke="#e0e0e0" strokeWidth="0.8" />
+                <text x={xForDate(slot)} y={height - 22} textAnchor="middle" fill="#666" fontSize="10" fontFamily="Calibri, Arial, sans-serif">
+                  {fmtTimeLabel(slot)}
+                </text>
+              </g>
+            ))}
+            {series.map((member, i) => {
+              const color = excelSeriesColors[i % excelSeriesColors.length]
+              return (
+                <g key={member.id}>
+                  <path d={buildPath(member.points, xForDate, yForRate)} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                  {member.points.map((point, index) => (
+                    <circle key={`${member.id}-${point.date}`} cx={xForDate(point.date)} cy={yForRate(point.rate)} r={index === member.points.length - 1 ? 4.5 : 2.5} fill={color} opacity={index === member.points.length - 1 ? 1 : 0.75} />
+                  ))}
+                </g>
+              )
+            })}
+          </svg>
+        </div>
+        <div className="px-3 py-1 text-center text-xs" style={{ color: '#888', borderTop: '1px solid #e0e0e0' }}>
+          10분 단위
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-2 sm:p-4" style={{ position: 'relative' }}>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {series.map(member => (
+          <div key={member.id} className="flex items-center gap-2 text-xs text-gray-400">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: member.color }} />
+            <span className="font-semibold" style={{ color: member.color }}>{member.name}</span>
+          </div>
+        ))}
+        <span className="text-xs text-gray-600">
+          {marketOpen ? '현재 10분 구간만 현재가 반영' : '장외 시간 - 데이터 고정'}
+        </span>
+      </div>
+      <div className="overflow-x-auto relative">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-[320px] max-w-none mx-auto"
+          style={{ width: `${width}px`, display: 'block' }}
+          role="img"
+          aria-label="10분 단위 실시간 수익률 선그래프"
+        >
+          <rect x={left} y={top} width={plotWidth} height={plotHeight} fill="#11182755" rx="8" />
+          {yTicks.map(tick => (
+            <g key={tick}>
+              <line x1={left} x2={left + plotWidth} y1={yForRate(tick)} y2={yForRate(tick)} stroke={Math.abs(tick) < 0.001 ? '#6b7280' : '#1f2937'} strokeWidth={Math.abs(tick) < 0.001 ? 1.5 : 1} />
+              <text x={left - 10} y={yForRate(tick) + 4} textAnchor="end" className="fill-gray-500 text-[11px]">
+                {fmtRate(tick)}
+              </text>
+            </g>
+          ))}
+          {slots.map(slot => (
+            <g key={slot}>
+              <line x1={xForDate(slot)} x2={xForDate(slot)} y1={top} y2={top + plotHeight} stroke="#1f2937" />
+              <text x={xForDate(slot)} y={height - 20} textAnchor="middle" className="fill-gray-500 text-[11px]">
+                {fmtTimeLabel(slot)}
+              </text>
+            </g>
+          ))}
+          {series.map(member => (
+            <g key={member.id}>
+              <path d={buildPath(member.points, xForDate, yForRate)} fill="none" stroke={member.color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+              {member.points.map((point, index) => (
+                <circle key={`${member.id}-${point.date}`} cx={xForDate(point.date)} cy={yForRate(point.rate)} r={index === member.points.length - 1 ? 4.5 : 2.5} fill={member.color} opacity={index === member.points.length - 1 ? 1 : 0.55} />
+              ))}
+            </g>
+          ))}
+        </svg>
       </div>
     </div>
   )
