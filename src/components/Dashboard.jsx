@@ -69,9 +69,9 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
             <button
               onClick={() => setExcelMode(false)}
               className="text-xs px-2 py-0 hover:bg-gray-300 border"
-              style={{ borderColor: '#c0c0c0', background: '#e8f5e9', color: '#1a5c30', height: 18, fontSize: 10 }}
+              style={{ borderColor: '#c0c0c0', background: '#ffffff', color: '#111', height: 18, fontSize: 10 }}
             >
-              ✕ 엑셀 모드 끄기
+              엑셀 모드 끄기
             </button>
           </div>
         </div>
@@ -99,20 +99,20 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
               <div className="flex items-center gap-3 pb-1 border-b" style={{ borderColor: '#c0c0c0' }}>
                 <div className="flex items-center gap-2">
                   {loading ? (
-                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#c0c0c0', background: '#fff9c4', color: '#5c4a00' }}>
-                      ⏳ 시세 가져오는 중…
+                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#c0c0c0', background: '#fff9c4', color: '#111' }}>
+                      시세 가져오는 중...
                     </span>
                   ) : isLive ? (
-                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#4CAF50', background: '#e8f5e9', color: '#1a5c30' }}>
-                      ● 실시간 · {formatUpdatedAt(updatedAt)} (KST)
+                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#4CAF50', background: '#e8f5e9', color: '#111' }}>
+                      실시간 · {formatUpdatedAt(updatedAt)} (KST)
                     </span>
                   ) : fetchError ? (
-                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#ef5350', background: '#ffebee', color: '#b71c1c' }}>
-                      ⚠ 시세 로딩 실패
+                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#ef5350', background: '#ffebee', color: '#111' }}>
+                      시세 로딩 실패
                     </span>
                   ) : updatedAt ? (
-                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#42a5f5', background: '#e3f2fd', color: '#0d47a1' }}>
-                      ● 최신 스냅샷 · {formatUpdatedAt(updatedAt)} (KST)
+                    <span className="text-xs px-2 py-0.5 border" style={{ borderColor: '#42a5f5', background: '#e3f2fd', color: '#111' }}>
+                      최신 스냅샷 · {formatUpdatedAt(updatedAt)} (KST)
                     </span>
                   ) : null}
 
@@ -120,9 +120,9 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
                     <button
                       onClick={onRefresh}
                       className="text-xs px-2 py-0.5 border hover:bg-gray-100"
-                      style={{ borderColor: '#c0c0c0', color: '#444' }}
+                      style={{ borderColor: '#c0c0c0', color: '#111' }}
                     >
-                      ↻ 새로고침
+                      새로고침
                     </button>
                   )}
                 </div>
@@ -130,8 +130,8 @@ export default function Dashboard({ members, totalStats, updatedAt, loading, isL
 
               {/* Error banner */}
               {fetchError && !loading && (
-                <div className="text-sm px-3 py-2 border" style={{ borderColor: '#ef9a9a', background: '#ffebee', color: '#c62828' }}>
-                  ⚠ Yahoo Finance 연결 실패 — 잠시 후 다시 시도하거나 새로고침을 눌러주세요
+                <div className="text-sm px-3 py-2 border" style={{ borderColor: '#ef9a9a', background: '#ffebee', color: '#111' }}>
+                  Yahoo Finance 연결 실패 - 잠시 후 다시 시도하거나 새로고침을 눌러주세요
                 </div>
               )}
 
