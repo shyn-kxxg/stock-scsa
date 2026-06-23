@@ -1,0 +1,4 @@
+project_id = "stock-scsa"
+
+[functions.prices]
+verify_jwt = true

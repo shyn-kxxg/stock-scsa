@@ -182,6 +182,63 @@ async function fetchSnapshotPrices() {
   }
 }
 
+async function fetchSupabasePrices() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) return null
+
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 10000)
+  try {
+    const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/prices`, {
+      cache: 'no-store',
+      headers: {
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        apikey: supabaseAnonKey,
+      },
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const rawPrices = data?.prices ?? null
+    const prices = rawPrices && Object.fromEntries(
+      QUOTE_MEMBERS.map(member => [member.quoteId, validNumber(rawPrices[member.quoteId])]),
+    )
+    if (!prices || !Object.values(prices).some(p => p !== null)) return null
+
+    const rawHistories = data?.histories ?? {}
+    const histories = Object.fromEntries(
+      QUOTE_MEMBERS.map(member => [
+        member.quoteId,
+        (rawHistories[member.quoteId] ?? []).filter(point => (
+          validDateString(point?.date) && Number.isFinite(point?.close)
+        )),
+      ]),
+    )
+    const rawTenMinuteHistories = data?.tenMinuteHistories ?? {}
+    const tenMinuteHistories = Object.fromEntries(
+      QUOTE_MEMBERS.map(member => [
+        member.quoteId,
+        (rawTenMinuteHistories[member.quoteId] ?? []).filter(point => (
+          typeof point?.timestamp === 'string' && Number.isFinite(point?.close)
+        )),
+      ]),
+    )
+
+    return {
+      prices,
+      histories,
+      tenMinuteHistories,
+      usdKrw: validNumber(data?.exchangeRates?.usdKrw),
+      updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
+    }
+  } catch {
+    return null
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 const REFRESH_INTERVAL_MS = 60 * 1000 // 1분마다 실시간 시세 재호출
 
 export function useLivePrices() {
@@ -208,11 +265,15 @@ export function useLivePrices() {
         setIsLive(false)
       }
 
-      const [liveData, liveUsdKrw] = await Promise.all([
-        fetchAllMarketData(),
-        fetchUsdKrw(),
-      ])
-      const liveResult = liveData.prices
+      const supabaseData = await fetchSupabasePrices()
+      const shouldUseBrowserLive = !supabaseData
+      const [liveData, liveUsdKrw] = shouldUseBrowserLive
+        ? await Promise.all([
+          fetchAllMarketData(),
+          fetchUsdKrw(),
+        ])
+        : [supabaseData, supabaseData.usdKrw]
+      const liveResult = liveData.prices ?? {}
       const anyLiveSuccess = Object.values(liveResult).some(p => p !== null)
       if (anyLiveSuccess || liveUsdKrw !== null) {
         const merged = {

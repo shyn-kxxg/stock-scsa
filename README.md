@@ -25,6 +25,35 @@ node scripts/fetch-prices.js   # 현재 시세 수집 (public/data.json 업데�
 npm run dev                     # 개발 서버 http://localhost:5173/stock-scsa/
 ```
 
+## Supabase 시세 서버
+
+브라우저에서 Yahoo Finance를 직접 호출하면 CORS로 실패할 수 있어서, Supabase Edge Function을 시세 프록시/캐시 서버로 사용할 수 있습니다.
+
+구성:
+
+- `supabase/functions/prices`: Yahoo Finance를 서버에서 호출하고 최신 6월 시세를 반환
+- `supabase/migrations/202606230001_create_price_snapshots.sql`: 1분 캐시 스냅샷 저장 테이블
+- `env.example`: 프론트에서 Edge Function을 호출하기 위한 Vite 환경변수 예시
+
+배포:
+
+```bash
+supabase login
+supabase link --project-ref <project-ref>
+supabase db push
+supabase functions deploy prices
+```
+
+프론트 환경변수:
+
+```bash
+cp env.example .env.local
+# .env.local에 Supabase Project URL과 anon key 입력
+npm run build
+```
+
+`VITE_SUPABASE_URL`과 `VITE_SUPABASE_ANON_KEY`가 있으면 화면은 Supabase Edge Function을 먼저 사용합니다. 설정이 없거나 Supabase 호출이 실패하면 기존 `public/data.json` 스냅샷과 브라우저 fallback을 사용합니다.
+
 ## GitHub Pages 배포
 
 1. GitHub에서 `stock-scsa` public 레포 생성
@@ -43,7 +72,7 @@ git push -u origin main
 - `main` 브랜치에 push할 때마다 배포
 - 평일 KST 09:00~17:00 사이 2시간 간격으로 자동 갱신 (GitHub Actions 스케줄)
 - 수동 실행: Actions 탭 → Deploy to GitHub Pages → **Run workflow**
-- 화면에서는 브라우저에서 가능한 경우 최신 시세를 직접 가져오고, 실패하면 GitHub Actions가 생성한 `public/data.json` 스냅샷을 fallback으로 사용합니다.
+- 화면에서는 Supabase Edge Function을 우선 사용하고, 설정이 없거나 실패하면 GitHub Actions가 생성한 `public/data.json` 스냅샷과 브라우저 fallback을 사용합니다.
 
 ## 데이터 출처
 
