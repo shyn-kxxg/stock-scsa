@@ -102,9 +102,13 @@ export default function ProfitLineChart({ members, mode = 'daily' }) {
 
   const left = isMobile ? 36 : 58
   const right = isMobile ? 12 : 24
-  const dayWidth = isMobile ? 15 : 40
+  const dayWidth = isMobile ? 12 : 28
   const minWidth = isMobile ? 360 : 720
-  const width = Math.max(minWidth, left + right + Math.max(dates.length - 1, 1) * dayWidth)
+  const maxWidth = isMobile ? 560 : 960
+  const width = Math.min(
+    maxWidth,
+    Math.max(minWidth, left + right + Math.max(dates.length - 1, 1) * dayWidth),
+  )
   const height = 360
   const top = 26
   const bottom = 50
@@ -566,8 +570,13 @@ function TenMinuteLineChart({ members, excelMode, isMobile }) {
   const yMax = maxRate + padding
   const left = isMobile ? 36 : 58
   const right = isMobile ? 12 : 24
-  const stepWidth = isMobile ? 54 : 96
-  const width = Math.max(isMobile ? 420 : 760, left + right + (slots.length - 1) * stepWidth)
+  const stepWidth = isMobile ? 34 : 52
+  const minWidth = isMobile ? 420 : 760
+  const maxWidth = isMobile ? 640 : 1040
+  const width = Math.min(
+    maxWidth,
+    Math.max(minWidth, left + right + Math.max(slots.length - 1, 1) * stepWidth),
+  )
   const height = 360
   const top = 26
   const bottom = 50
@@ -581,6 +590,10 @@ function TenMinuteLineChart({ members, excelMode, isMobile }) {
   }
   const yForRate = rate => top + ((yMax - rate) / (yMax - yMin)) * plotHeight
   const excelSeriesColors = ['#4472C4', '#ED7D31', '#A9D18E', '#FFC000', '#5B9BD5', '#70AD47']
+  const xTickSlots = slots.filter((_, index) => {
+    if (slots.length <= 8) return true
+    return index === 0 || index === slots.length - 1 || index % Math.ceil(slots.length / 8) === 0
+  })
 
   if (excelMode) {
     return (
@@ -619,7 +632,7 @@ function TenMinuteLineChart({ members, excelMode, isMobile }) {
                 </text>
               </g>
             ))}
-            {slots.map(slot => (
+            {xTickSlots.map(slot => (
               <g key={slot}>
                 <line x1={xForDate(slot)} x2={xForDate(slot)} y1={top} y2={top + plotHeight} stroke="#e0e0e0" strokeWidth="0.8" />
                 <text x={xForDate(slot)} y={height - 22} textAnchor="middle" fill="#666" fontSize="10" fontFamily="Calibri, Arial, sans-serif">
@@ -677,7 +690,7 @@ function TenMinuteLineChart({ members, excelMode, isMobile }) {
               </text>
             </g>
           ))}
-          {slots.map(slot => (
+          {xTickSlots.map(slot => (
             <g key={slot}>
               <line x1={xForDate(slot)} x2={xForDate(slot)} y1={top} y2={top + plotHeight} stroke="#1f2937" />
               <text x={xForDate(slot)} y={height - 20} textAnchor="middle" className="fill-gray-500 text-[11px]">

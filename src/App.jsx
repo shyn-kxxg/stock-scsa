@@ -1,4 +1,4 @@
-import { MEMBERS } from './data/members'
+import { MAY_MEMBERS, JUNE_MEMBERS } from './data/members'
 import { useLivePrices } from './hooks/useLivePrices'
 import Dashboard from './components/Dashboard'
 import { ExcelModeProvider } from './context/ExcelModeContext'
@@ -11,14 +11,14 @@ const MONTHS = [
     title: '2026년 5월',
     startDate: '2026-05-22',
     endDate: '2026-06-19',
-    members: MEMBERS,
+    members: MAY_MEMBERS,
   },
   {
     id: '2026-06',
     label: '6월',
     title: '2026년 6월',
     startDate: '2026-06-20',
-    members: MEMBERS,
+    members: JUNE_MEMBERS,
   },
 ]
 
@@ -65,16 +65,29 @@ function currentTenMinuteTimestamp() {
   return new Date(bucketMs).toISOString()
 }
 
-function buildTenMinuteRates(member, tenMinuteHistory, currentPrice, month) {
+function normalizePrice(member, price, usdKrw) {
+  if (price === null || price === undefined) return null
+  if (member.currency === 'KRW' && member.quoteCurrency === 'USD') {
+    return usdKrw ? price * usdKrw : null
+  }
+  return price
+}
+
+function buildTenMinuteRates(member, tenMinuteHistory, currentPrice, month, usdKrw) {
   const points = (tenMinuteHistory ?? [])
     .filter(point => {
       const date = kstDateString(point.timestamp)
       return date >= month.startDate && (!month.endDate || date <= month.endDate)
     })
-    .map(point => ({
-      date: point.timestamp,
-      rate: ((point.close - member.purchasePrice) / member.purchasePrice) * 100,
-    }))
+    .map(point => {
+      const normalizedClose = normalizePrice(member, point.close, usdKrw)
+      return {
+        date: point.timestamp,
+        rate: normalizedClose !== null
+          ? ((normalizedClose - member.purchasePrice) / member.purchasePrice) * 100
+          : null,
+      }
+    })
     .filter(point => Number.isFinite(point.rate))
 
   const today = kstDateString()
@@ -97,13 +110,21 @@ function buildTenMinuteRates(member, tenMinuteHistory, currentPrice, month) {
 
 function buildMonthlyMembers(month, { prices, histories, tenMinuteHistories, usdKrw }) {
   return month.members.map(m => {
-    const history = histories?.[m.id] ?? []
-    const monthClose = latestCloseInRange(history, month.startDate, month.endDate)
+    const quoteId = m.quoteId ?? m.id
+    const history = histories?.[quoteId] ?? []
+    const rawMonthClose = latestCloseInRange(history, month.startDate, month.endDate)
+    const monthClose = normalizePrice(m, rawMonthClose, usdKrw)
+    const livePrice = normalizePrice(m, prices?.[quoteId], usdKrw)
     const currentPrice = month.endDate
       ? monthClose
-      : prices?.[m.id] ?? monthClose
+      : livePrice ?? monthClose
     const rangedHistory = history
       .filter(point => point.date >= month.startDate && (!month.endDate || point.date <= month.endDate))
+      .map(point => ({
+        ...point,
+        close: normalizePrice(m, point.close, usdKrw),
+      }))
+      .filter(point => point.close !== null)
 
     if (!month.endDate && currentPrice !== null) {
       const today = kstDateString()
@@ -127,6 +148,10 @@ function buildMonthlyMembers(month, { prices, histories, tenMinuteHistories, usd
       currentPrice !== null
         ? m.totalInvestment * (currentPrice / m.purchasePrice - 1)
         : null
+    const profitKrw =
+      profitAmount !== null && (m.currency !== 'USD' || usdKrw)
+        ? profitAmount * (m.currency === 'USD' ? usdKrw : 1)
+        : null
     const krwRate = m.currency === 'USD' ? usdKrw : 1
     const investmentKrw = krwRate ? m.totalInvestment * krwRate : null
     const currentValueKrw =
@@ -138,9 +163,10 @@ function buildMonthlyMembers(month, { prices, histories, tenMinuteHistories, usd
       ...m,
       currentPrice,
       historyRates,
-      tenMinuteRates: buildTenMinuteRates(m, tenMinuteHistories?.[m.id], currentPrice, month),
+      tenMinuteRates: buildTenMinuteRates(m, tenMinuteHistories?.[quoteId], currentPrice, month, usdKrw),
       profitRate,
       profitAmount,
+      profitKrw,
       investmentKrw,
       currentValueKrw,
       monthId: month.id,
@@ -172,16 +198,17 @@ export default function App() {
   }), [prices, histories, tenMinuteHistories, usdKrw])
 
   const activeMonth = monthViews.find(month => month.id === activeMonthId) ?? monthViews.at(-1)
-  const cumulativeMembers = useMemo(() => MEMBERS.map(member => {
+  const cumulativeMembers = useMemo(() => JUNE_MEMBERS.map(member => {
     const rows = monthViews
       .map(month => month.members.find(row => row.id === member.id))
       .filter(Boolean)
-    const completedRows = rows.filter(row => row.profitAmount !== null)
-    const totalInvestment = completedRows.reduce((sum, row) => sum + row.totalInvestment, 0)
-    const profitAmount = completedRows.reduce((sum, row) => sum + row.profitAmount, 0)
+    const completedRows = rows.filter(row => row.profitKrw !== null && row.investmentKrw !== null)
+    const totalInvestment = completedRows.reduce((sum, row) => sum + (row.investmentKrw ?? 0), 0)
+    const profitAmount = completedRows.reduce((sum, row) => sum + (row.profitKrw ?? 0), 0)
     const profitRate = totalInvestment > 0 ? (profitAmount / totalInvestment) * 100 : null
     return {
       ...member,
+      currency: 'KRW',
       profitRate,
       profitAmount: completedRows.length > 0 ? profitAmount : null,
       monthCount: completedRows.length,

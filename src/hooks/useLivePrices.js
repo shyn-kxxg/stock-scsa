@@ -1,22 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MEMBERS } from '../data/members'
+import { JUNE_MEMBERS, QUOTE_MEMBERS } from '../data/members'
 
-const YAHOO_MEMBERS = MEMBERS.filter(m => m.type === 'stock')
+const YAHOO_MEMBERS = JUNE_MEMBERS.filter(m => m.type === 'stock')
 const CHART_START_DATE = '2026-05-22'
 
 // Yahoo Finance v8 chart endpoint (no API key, publicly documented)
 function yahooUrl(symbol, range = '1d') {
-  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&includePrePost=false`
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}&includePrePost=false&_=${Date.now()}`
 }
 
 function yahooHistoryUrl(symbol) {
   const period1 = Math.floor(new Date(`${CHART_START_DATE}T00:00:00Z`).getTime() / 1000)
   const period2 = Math.floor(Date.now() / 1000)
-  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${period1}&period2=${period2}&includePrePost=false`
-}
-
-function yahooIntradayUrl(symbol) {
-  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=false`
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${period1}&period2=${period2}&includePrePost=false&_=${Date.now()}`
 }
 
 function validNumber(value) {
@@ -27,14 +23,38 @@ function validDateString(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
+function parseChartPayload(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    const jsonText = text.match(/Markdown Content:\s*({[\s\S]*})\s*$/)?.[1]
+    return jsonText ? JSON.parse(jsonText) : null
+  }
+}
+
+const CHART_URLS = [
+  rawUrl => rawUrl,
+  rawUrl => `https://r.jina.ai/http://${rawUrl}`,
+]
+
 async function fetchChart(rawUrl, expectedSymbol) {
+  for (const chartUrl of CHART_URLS) {
+    const chart = await fetchChartUrl(chartUrl(rawUrl), expectedSymbol)
+    if (chart) return chart
+  }
+  return null
+}
+
+async function fetchChartUrl(rawUrl, expectedSymbol) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000)
   try {
     const res = await fetch(rawUrl, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: controller.signal,
     })
     if (!res.ok) return null
-    const data = await res.json()
+    const data = parseChartPayload(await res.text())
     const chart = data?.chart?.result?.[0] ?? null
     const meta = chart?.meta
     if (!meta) return null
@@ -42,6 +62,8 @@ async function fetchChart(rawUrl, expectedSymbol) {
     return chart
   } catch {
     return null
+  } finally {
+    window.clearTimeout(timeoutId)
   }
 }
 
@@ -83,20 +105,17 @@ function parseTenMinuteHistory(chart) {
 }
 
 async function fetchYahooMarketData(symbol) {
-  const [chart, intradayChart] = await Promise.all([
-    fetchChart(yahooHistoryUrl(symbol), symbol),
-    fetchChart(yahooIntradayUrl(symbol), symbol),
-  ])
+  const chart = await fetchChart(yahooHistoryUrl(symbol), symbol)
   return {
     price: validNumber(chart?.meta?.regularMarketPrice),
     history: parseHistory(chart),
-    tenMinuteHistory: parseTenMinuteHistory(intradayChart),
+    tenMinuteHistory: [],
   }
 }
 
 async function fetchAllMarketData() {
   const stockResults = await Promise.all(
-    YAHOO_MEMBERS.map(m => fetchYahooMarketData(m.symbol).then(data => [m.id, data])),
+    YAHOO_MEMBERS.map(m => fetchYahooMarketData(m.symbol).then(data => [m.quoteId, data])),
   )
 
   const prices = {}
@@ -117,32 +136,34 @@ async function fetchUsdKrw() {
 }
 
 async function fetchSnapshotPrices() {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000)
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}data.json`, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: controller.signal,
     })
     if (!res.ok) return null
     const data = await res.json()
     const rawPrices = data?.prices ?? null
     const prices = rawPrices && Object.fromEntries(
-      MEMBERS.map(member => [member.id, validNumber(rawPrices[member.id])]),
+      QUOTE_MEMBERS.map(member => [member.quoteId, validNumber(rawPrices[member.quoteId])]),
     )
     if (!prices || !Object.values(prices).some(p => p !== null)) return null
     const rawHistories = data?.histories ?? {}
     const histories = Object.fromEntries(
-      MEMBERS.map(member => [
-        member.id,
-        (rawHistories[member.id] ?? []).filter(point => (
+      QUOTE_MEMBERS.map(member => [
+        member.quoteId,
+        (rawHistories[member.quoteId] ?? []).filter(point => (
           validDateString(point?.date) && Number.isFinite(point?.close)
         )),
       ]),
     )
     const rawTenMinuteHistories = data?.tenMinuteHistories ?? {}
     const tenMinuteHistories = Object.fromEntries(
-      MEMBERS.map(member => [
-        member.id,
-        (rawTenMinuteHistories[member.id] ?? []).filter(point => (
+      QUOTE_MEMBERS.map(member => [
+        member.quoteId,
+        (rawTenMinuteHistories[member.quoteId] ?? []).filter(point => (
           typeof point?.timestamp === 'string' && Number.isFinite(point?.close)
         )),
       ]),
@@ -156,10 +177,12 @@ async function fetchSnapshotPrices() {
     }
   } catch {
     return null
+  } finally {
+    window.clearTimeout(timeoutId)
   }
 }
 
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000 // 5분마다 자동 갱신
+const REFRESH_INTERVAL_MS = 60 * 1000 // 1분마다 실시간 시세 재호출
 
 export function useLivePrices() {
   const [prices, setPrices] = useState(null)
@@ -227,7 +250,16 @@ export function useLivePrices() {
   useEffect(() => {
     refresh()
     const timer = setInterval(refresh, REFRESH_INTERVAL_MS)
-    return () => clearInterval(timer)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [refresh])
 
   return { prices, histories, tenMinuteHistories, usdKrw, updatedAt, loading, isLive, error, refresh }

@@ -1,22 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { JUNE_MEMBERS } from '../src/data/members.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CHART_START_DATE = '2026-05-22'
 
-// ── 종목 설정 ────────────────────────────────────────────────────────────────
-// Yahoo Finance 심볼: .KS = 코스피, .KQ = 코스닥
-// 심볼 확인: https://finance.yahoo.com/lookup
-const KRX_STOCKS = [
-  { id: 'hyemin',   symbol: '067990.KQ', name: '도이치모터스' },
-  { id: 'hyejun',   symbol: '069960.KS', name: '현대백화점'   },
-  { id: 'seunggi',  symbol: '008970.KS', name: 'KBI동양철관'  },
-  { id: 'junyoung', symbol: '005380.KS', name: '현대차'        },
-  { id: 'yewon',    symbol: '032300.KQ', name: '한국파마'      },
-  { id: 'seohyeon', symbol: 'QTUM',      name: 'QTUM ETF'      },
-]
-// ─────────────────────────────────────────────────────────────────────────────
+const STOCKS = JUNE_MEMBERS.filter(member => member.type === 'stock')
+const outPath = path.join(__dirname, '..', 'public', 'data.json')
 
 async function fetchText(url, options = {}) {
   const signal = AbortSignal.timeout(options.timeoutMs ?? 12000)
@@ -110,7 +101,7 @@ async function fetchYahooChart(symbol, auth, range = '1d', interval = '1d') {
     : `range=${range}`
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${query}&includePrePost=false`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${query}&includePrePost=false&_=${Date.now()}`
     const data = await fetchJson(url)
     const chart = data?.chart?.result?.[0]
     if (chart?.meta?.regularMarketPrice) return chart
@@ -120,13 +111,22 @@ async function fetchYahooChart(symbol, auth, range = '1d', interval = '1d') {
 
   if (auth) {
     try {
-      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${query}&crumb=${encodeURIComponent(auth.crumb)}`
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${query}&crumb=${encodeURIComponent(auth.crumb)}&_=${Date.now()}`
       const data = await fetchJson(url, { cookie: auth.cookie, timeoutMs: 12000 })
       const chart = data?.chart?.result?.[0]
       if (chart?.meta?.regularMarketPrice) return chart
     } catch { /* fallthrough */ }
   }
 
+  return null
+}
+
+async function fetchYahooChartWithRetries(symbol, auth, range = '1d', interval = '1d', attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const chart = await fetchYahooChart(symbol, auth, range, interval)
+    if (chart) return chart
+    if (attempt < attempts) await delay(1500 * attempt)
+  }
   return null
 }
 
@@ -141,27 +141,35 @@ async function main() {
   const auth = await getYahooAuth()
   console.log(auth?.crumb ? '[fetch-prices] Yahoo 인증 성공' : '[fetch-prices] Yahoo 인증 건너뜀')
 
-  const prices = {}
-  const histories = {}
-  const tenMinuteHistories = {}
+  const previous = fs.existsSync(outPath)
+    ? JSON.parse(fs.readFileSync(outPath, 'utf-8'))
+    : {}
+  const prices = { ...(previous.prices ?? {}) }
+  const histories = { ...(previous.histories ?? {}) }
+  const tenMinuteHistories = { ...(previous.tenMinuteHistories ?? {}) }
 
-  for (const s of KRX_STOCKS) {
+  for (const s of STOCKS) {
     const [chart, intradayChart] = await Promise.all([
-      fetchYahooChart(s.symbol, auth, 'fromStartDate'),
-      fetchYahooChart(s.symbol, auth, '1d', '1m'),
+      fetchYahooChartWithRetries(s.symbol, auth, 'fromStartDate'),
+      fetchYahooChartWithRetries(s.symbol, auth, '1d', '1m'),
     ])
     const price = chart?.meta?.regularMarketPrice ?? null
-    prices[s.id] = price
-    histories[s.id] = parseHistory(chart)
-    tenMinuteHistories[s.id] = parseTenMinuteHistory(intradayChart)
-    console.log(`[fetch-prices] ${s.name} (${s.symbol}): ${price ?? '실패'}`)
+    if (price !== null) {
+      prices[s.quoteId] = price
+      histories[s.quoteId] = parseHistory(chart)
+    }
+    if (intradayChart) {
+      tenMinuteHistories[s.quoteId] = parseTenMinuteHistory(intradayChart)
+    }
+    console.log(`[fetch-prices] ${s.name} / ${s.stock} (${s.symbol}): ${price ?? '실패'}`)
     await delay(1200)
   }
 
   const usdKrw = await fetchYahooPrice('USDKRW=X', auth)
   console.log(`[fetch-prices] USD/KRW (USDKRW=X): ${usdKrw ?? '실패'}`)
 
-  if (!Object.values(prices).some(price => price !== null)) {
+  const hasJunePrice = STOCKS.some(s => prices[s.quoteId] !== null && prices[s.quoteId] !== undefined)
+  if (!hasJunePrice) {
     throw new Error('모든 시세 수집 실패: 기존 data.json을 보존합니다')
   }
 
@@ -175,7 +183,6 @@ async function main() {
     },
   }
 
-  const outPath = path.join(__dirname, '..', 'public', 'data.json')
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2), 'utf-8')
   console.log('[fetch-prices] 저장 완료:', outPath)
   console.log('[fetch-prices] 결과:', JSON.stringify(prices))

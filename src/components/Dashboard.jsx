@@ -38,7 +38,6 @@ export default function Dashboard({
 }) {
   const { excelMode, setExcelMode } = useExcelMode()
   const [activeTab, setActiveTab] = useState('홈')
-  const [chartMode, setChartMode] = useState('daily')
 
   const sorted = [...members].sort((a, b) => {
     if (a.profitRate === null && b.profitRate === null) return 0
@@ -186,9 +185,8 @@ export default function Dashboard({
                     <div className="text-xs font-semibold" style={{ color: '#217346', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       수익률 그래프
                     </div>
-                    <ChartModeToggle value={chartMode} onChange={setChartMode} excelMode />
                   </div>
-                  <ProfitLineChart members={sorted} mode={chartMode} />
+                  <ProfitLineChart members={sorted} mode="daily" />
                 </section>
               )}
 
@@ -213,7 +211,7 @@ export default function Dashboard({
 
               {/* Footer row */}
               <div className="pt-2 border-t text-xs" style={{ borderColor: '#c0c0c0', color: '#888' }}>
-                데이터 출처: Yahoo Finance · 5분마다 자동 갱신
+                데이터 출처: Yahoo Finance · 1분마다 자동 갱신
               </div>
             </div>
           </div>
@@ -334,9 +332,8 @@ export default function Dashboard({
               <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-widest">
                 수익률 그래프
               </h2>
-              <ChartModeToggle value={chartMode} onChange={setChartMode} />
             </div>
-            <ProfitLineChart members={sorted} mode={chartMode} />
+            <ProfitLineChart members={sorted} mode="daily" />
           </section>
         )}
 
@@ -361,7 +358,7 @@ export default function Dashboard({
 
       <footer className="text-center py-6 border-t border-gray-800/50">
         <p className="text-gray-800 text-xs">
-          데이터 출처: Yahoo Finance · 5분마다 자동 갱신
+          데이터 출처: Yahoo Finance · 1분마다 자동 갱신
         </p>
       </footer>
     </div>
@@ -419,61 +416,6 @@ function MonthTabs({ months, activeMonthId, onMonthChange, excelMode = false }) 
           )
         })}
       </div>
-    </div>
-  )
-}
-
-function ChartModeToggle({ value, onChange, excelMode = false }) {
-  const options = [
-    { id: 'daily', label: '일간' },
-    { id: 'ten-minute', label: '10분' },
-  ]
-
-  if (excelMode) {
-    return (
-      <div className="inline-flex border" style={{ borderColor: '#c0c0c0', background: '#f2f2f2' }}>
-        {options.map(option => {
-          const active = option.id === value
-          return (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => onChange(option.id)}
-              className="px-3 py-1 text-xs border-r last:border-r-0"
-              style={{
-                borderColor: '#c0c0c0',
-                background: active ? '#217346' : 'white',
-                color: active ? 'white' : '#111',
-                fontWeight: active ? 700 : 500,
-              }}
-            >
-              {option.label}
-            </button>
-          )
-        })}
-      </div>
-    )
-  }
-
-  return (
-    <div className="inline-flex rounded-lg border border-gray-800 bg-gray-900/60 p-0.5">
-      {options.map(option => {
-        const active = option.id === value
-        return (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onChange(option.id)}
-            className={`h-7 px-3 text-xs font-semibold transition-colors ${
-              active
-                ? 'rounded-md bg-emerald-400 text-gray-950'
-                : 'rounded-md text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {option.label}
-          </button>
-        )
-      })}
     </div>
   )
 }

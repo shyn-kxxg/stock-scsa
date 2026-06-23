@@ -1,11 +1,19 @@
-// 구매 정보 기준: 2025년 SCSA 주식 경마 대회
+// 구매 정보 기준: 2026년 SCSA 주식 경마 대회
 // Yahoo Finance 종목 코드 확인: https://finance.yahoo.com/lookup
 
-export const MEMBERS = [
+const PEOPLE = {
+  hyemin: { id: 'hyemin', name: '혜민', color: '#FF6B6B' },
+  hyejun: { id: 'hyejun', name: '혜준', color: '#4ECDC4' },
+  seunggi: { id: 'seunggi', name: '승기', color: '#C084FC' },
+  junyoung: { id: 'junyoung', name: '준영', color: '#60A5FA' },
+  yewon: { id: 'yewon', name: '예원', color: '#FBBF24' },
+  seohyeon: { id: 'seohyeon', name: '서현', color: '#34D399' },
+}
+
+export const MAY_MEMBERS = [
   {
-    id: 'hyemin',
-    name: '혜민',
-    color: '#FF6B6B',
+    ...PEOPLE.hyemin,
+    quoteId: '2026-05-hyemin',
     stock: '도이치모터스',
     symbol: '067990.KQ',
     type: 'stock',
@@ -15,9 +23,8 @@ export const MEMBERS = [
     totalInvestment: 9770,
   },
   {
-    id: 'hyejun',
-    name: '혜준',
-    color: '#4ECDC4',
+    ...PEOPLE.hyejun,
+    quoteId: '2026-05-hyejun',
     stock: '현대백화점',
     symbol: '069960.KS',
     type: 'stock',
@@ -27,9 +34,8 @@ export const MEMBERS = [
     totalInvestment: 10000,
   },
   {
-    id: 'seunggi',
-    name: '승기',
-    color: '#C084FC',
+    ...PEOPLE.seunggi,
+    quoteId: '2026-05-seunggi',
     stock: 'KBI동양철관',
     symbol: '008970.KS',
     type: 'stock',
@@ -39,9 +45,8 @@ export const MEMBERS = [
     totalInvestment: 9474,
   },
   {
-    id: 'junyoung',
-    name: '준영',
-    color: '#60A5FA',
+    ...PEOPLE.junyoung,
+    quoteId: '2026-05-junyoung',
     stock: '현대차',
     symbol: '005380.KS',
     type: 'stock',
@@ -51,9 +56,8 @@ export const MEMBERS = [
     totalInvestment: 10000,
   },
   {
-    id: 'yewon',
-    name: '예원',
-    color: '#FBBF24',
+    ...PEOPLE.yewon,
+    quoteId: '2026-05-yewon',
     stock: '한국파마',
     symbol: '032300.KQ',
     type: 'stock',
@@ -63,9 +67,8 @@ export const MEMBERS = [
     totalInvestment: 10600,
   },
   {
-    id: 'seohyeon',
-    name: '서현',
-    color: '#34D399',
+    ...PEOPLE.seohyeon,
+    quoteId: '2026-05-seohyeon',
     stock: 'QTUM ETF',
     symbol: 'QTUM',
     type: 'stock',
@@ -75,3 +78,84 @@ export const MEMBERS = [
     totalInvestment: 7,
   },
 ]
+
+export const JUNE_MEMBERS = [
+  {
+    ...PEOPLE.yewon,
+    quoteId: '2026-06-yewon',
+    stock: '삼성바이오로직스',
+    symbol: '207940.KS',
+    type: 'stock',
+    currency: 'KRW',
+    quantity: 10000 / 1301000,
+    purchasePrice: 1301000,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.junyoung,
+    quoteId: '2026-06-junyoung',
+    stock: 'SMH',
+    symbol: 'SMH',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 1018472,
+    purchasePrice: 1018472,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.seunggi,
+    quoteId: '2026-06-seunggi',
+    stock: 'GE 버노바',
+    symbol: 'GEV',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 1694640,
+    purchasePrice: 1694640,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.hyejun,
+    quoteId: '2026-06-hyejun',
+    stock: '팔란티어',
+    symbol: 'PLTR',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 194814,
+    purchasePrice: 194814,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.hyemin,
+    quoteId: '2026-06-hyemin',
+    stock: 'HANARO 원자력 iSelect',
+    symbol: '434730.KS',
+    type: 'stock',
+    currency: 'KRW',
+    quantity: 10000 / 71097,
+    purchasePrice: 71097,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.seohyeon,
+    quoteId: '2026-06-seohyeon',
+    stock: 'TIME 코리아밸류업액티브',
+    symbol: '495060.KS',
+    type: 'stock',
+    currency: 'KRW',
+    quantity: 10000 / 41960,
+    purchasePrice: 41960,
+    totalInvestment: 10000,
+  },
+]
+
+export const MONTHLY_MEMBERS = {
+  '2026-05': MAY_MEMBERS,
+  '2026-06': JUNE_MEMBERS,
+}
+
+export const MEMBERS = JUNE_MEMBERS
+
+export const QUOTE_MEMBERS = [...MAY_MEMBERS, ...JUNE_MEMBERS]
