@@ -102,9 +102,9 @@ export default function ProfitLineChart({ members, mode = 'daily' }) {
 
   const left = isMobile ? 36 : 58
   const right = isMobile ? 12 : 24
-  const dayWidth = isMobile ? 12 : 28
-  const minWidth = isMobile ? 360 : 720
-  const maxWidth = isMobile ? 560 : 960
+  const dayWidth = isMobile ? 44 : 72
+  const minWidth = isMobile ? 300 : 320
+  const maxWidth = isMobile ? 460 : 760
   const width = Math.min(
     maxWidth,
     Math.max(minWidth, left + right + Math.max(dates.length - 1, 1) * dayWidth),
