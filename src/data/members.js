@@ -151,11 +151,85 @@ export const JUNE_MEMBERS = [
   },
 ]
 
+export const JULY_MEMBERS = [
+  {
+    ...PEOPLE.seunggi,
+    quoteId: '2026-07-seunggi',
+    stock: '블룸에너지',
+    symbol: 'BE',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 333272,
+    purchasePrice: 333272,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.junyoung,
+    quoteId: '2026-07-junyoung',
+    stock: 'SK하이닉스',
+    symbol: '000660.KS',
+    type: 'stock',
+    currency: 'KRW',
+    quantity: 10000 / 1949000,
+    purchasePrice: 1949000,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.yewon,
+    quoteId: '2026-07-yewon',
+    stock: '알테오젠',
+    symbol: '196170.KQ',
+    type: 'stock',
+    currency: 'KRW',
+    quantity: 10000 / 274000,
+    purchasePrice: 274000,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.hyemin,
+    quoteId: '2026-07-hyemin',
+    stock: '제너럴일렉트릭',
+    symbol: 'GE',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 504064,
+    purchasePrice: 504064,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.hyejun,
+    quoteId: '2026-07-hyejun',
+    stock: '버티브홀딩스',
+    symbol: 'VRT',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 434740,
+    purchasePrice: 434740,
+    totalInvestment: 10000,
+  },
+  {
+    ...PEOPLE.seohyeon,
+    quoteId: '2026-07-seohyeon',
+    stock: '아마존',
+    symbol: 'AMZN',
+    type: 'stock',
+    currency: 'KRW',
+    quoteCurrency: 'USD',
+    quantity: 10000 / 358451,
+    purchasePrice: 358451,
+    totalInvestment: 10000,
+  },
+]
+
 export const MONTHLY_MEMBERS = {
   '2026-05': MAY_MEMBERS,
   '2026-06': JUNE_MEMBERS,
+  '2026-07': JULY_MEMBERS,
 }
 
-export const MEMBERS = JUNE_MEMBERS
+export const MEMBERS = JULY_MEMBERS
 
-export const QUOTE_MEMBERS = [...MAY_MEMBERS, ...JUNE_MEMBERS]
+export const QUOTE_MEMBERS = [...MAY_MEMBERS, ...JUNE_MEMBERS, ...JULY_MEMBERS]

@@ -1,4 +1,4 @@
-import { MAY_MEMBERS, JUNE_MEMBERS } from './data/members'
+import { MAY_MEMBERS, JUNE_MEMBERS, JULY_MEMBERS } from './data/members'
 import { useLivePrices } from './hooks/useLivePrices'
 import Dashboard from './components/Dashboard'
 import { ExcelModeProvider } from './context/ExcelModeContext'
@@ -18,7 +18,15 @@ const MONTHS = [
     label: '6월',
     title: '2026년 6월',
     startDate: '2026-06-20',
+    endDate: '2026-07-21',
     members: JUNE_MEMBERS,
+  },
+  {
+    id: '2026-07',
+    label: '7월',
+    title: '2026년 7월',
+    startDate: '2026-07-22',
+    members: JULY_MEMBERS,
   },
 ]
 
@@ -198,7 +206,7 @@ export default function App() {
   }), [prices, histories, tenMinuteHistories, usdKrw])
 
   const activeMonth = monthViews.find(month => month.id === activeMonthId) ?? monthViews.at(-1)
-  const cumulativeMembers = useMemo(() => JUNE_MEMBERS.map(member => {
+  const cumulativeMembers = useMemo(() => JULY_MEMBERS.map(member => {
     const rows = monthViews
       .map(month => month.members.find(row => row.id === member.id))
       .filter(Boolean)

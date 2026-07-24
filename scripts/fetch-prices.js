@@ -1,12 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { JUNE_MEMBERS } from '../src/data/members.js'
+import { JULY_MEMBERS } from '../src/data/members.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CHART_START_DATE = '2026-05-22'
 
-const STOCKS = JUNE_MEMBERS.filter(member => member.type === 'stock')
+const STOCKS = JULY_MEMBERS.filter(member => member.type === 'stock')
 const outPath = path.join(__dirname, '..', 'public', 'data.json')
 
 async function fetchText(url, options = {}) {
@@ -168,8 +168,8 @@ async function main() {
   const usdKrw = await fetchYahooPrice('USDKRW=X', auth)
   console.log(`[fetch-prices] USD/KRW (USDKRW=X): ${usdKrw ?? '실패'}`)
 
-  const hasJunePrice = STOCKS.some(s => prices[s.quoteId] !== null && prices[s.quoteId] !== undefined)
-  if (!hasJunePrice) {
+  const hasPrice = STOCKS.some(s => prices[s.quoteId] !== null && prices[s.quoteId] !== undefined)
+  if (!hasPrice) {
     throw new Error('모든 시세 수집 실패: 기존 data.json을 보존합니다')
   }
 

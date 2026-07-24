@@ -3,12 +3,12 @@ const SNAPSHOT_KEY = 'latest'
 const CACHE_TTL_SECONDS = Number(Deno.env.get('PRICE_CACHE_TTL_SECONDS') ?? '60')
 
 const QUOTES = [
-  { quoteId: '2026-06-yewon', name: '예원', stock: '삼성바이오로직스', symbol: '207940.KS' },
-  { quoteId: '2026-06-junyoung', name: '준영', stock: 'SMH', symbol: 'SMH' },
-  { quoteId: '2026-06-seunggi', name: '승기', stock: 'GE 버노바', symbol: 'GEV' },
-  { quoteId: '2026-06-hyejun', name: '혜준', stock: '팔란티어', symbol: 'PLTR' },
-  { quoteId: '2026-06-hyemin', name: '혜민', stock: 'HANARO 원자력 iSelect', symbol: '434730.KS' },
-  { quoteId: '2026-06-seohyeon', name: '서현', stock: 'TIME 코리아밸류업액티브', symbol: '495060.KS' },
+  { quoteId: '2026-07-seunggi', name: '승기', stock: '블룸에너지', symbol: 'BE' },
+  { quoteId: '2026-07-junyoung', name: '준영', stock: 'SK하이닉스', symbol: '000660.KS' },
+  { quoteId: '2026-07-yewon', name: '예원', stock: '알테오젠', symbol: '196170.KQ' },
+  { quoteId: '2026-07-hyemin', name: '혜민', stock: '제너럴일렉트릭', symbol: 'GE' },
+  { quoteId: '2026-07-hyejun', name: '혜준', stock: '버티브홀딩스', symbol: 'VRT' },
+  { quoteId: '2026-07-seohyeon', name: '서현', stock: '아마존', symbol: 'AMZN' },
 ]
 
 const corsHeaders = {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { JUNE_MEMBERS, QUOTE_MEMBERS } from '../data/members'
+import { JULY_MEMBERS, QUOTE_MEMBERS } from '../data/members'
 
-const YAHOO_MEMBERS = JUNE_MEMBERS.filter(m => m.type === 'stock')
+const YAHOO_MEMBERS = JULY_MEMBERS.filter(m => m.type === 'stock')
 const CHART_START_DATE = '2026-05-22'
 
 // Yahoo Finance v8 chart endpoint (no API key, publicly documented)
